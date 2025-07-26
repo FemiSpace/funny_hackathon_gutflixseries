@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { supabase } from './supabaseClient';
+import { foodData } from './foodData';
 
 // Initialize OpenAI client with Azure configuration
 const azureApiKey = process.env.AZURE_OPENAI_API_KEY || '';
@@ -35,6 +36,12 @@ interface LLMResponse {
   reactions: OrganReaction[];
   medical_context: string;
   humor_level: number;
+}
+
+// Helper function to get prompt for a food type
+function getPromptForFoodType(foodType: string): string {
+  const food = foodData.find(f => f.name.toLowerCase() === foodType.toLowerCase());
+  return food?.llmPrompt || `Write a humorous reaction from the body's perspective about eating ${foodType}.`;
 }
 
 // Food type to system prompt mapping
@@ -211,10 +218,12 @@ async function generateLLMResponse(foodType: FoodType, quantity: number): Promis
   }`;
 
   try {
-    const response = await client.getChatCompletions(deploymentName, [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ], {
+    const response = await client.chat.completions.create({
+      model: deploymentName,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
       response_format: { type: 'json_object' },
       temperature: 0.8,
       max_tokens: 1000
