@@ -1,33 +1,76 @@
 import { NextResponse } from 'next/server';
-// import { OpenAIClient, AzureKeyCredential } from '@azure/openai';
+import { getFoodReactions, logInteraction } from '@/lib/llmService';
 
-// const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-// const azureApiKey = process.env.AZURE_OPENAI_KEY;
-// const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
-
-// if (!endpoint || !azureApiKey || !deploymentName) {
-//   throw new Error('Azure OpenAI environment variables not set');
-// }
-
-// const client = new OpenAIClient(endpoint, new AzureKeyCredential(azureApiKey));
+type RequestBody = {
+  foodType: string;
+  quantity: number;
+  playerName?: string;
+};
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = await request.json();
+    const { foodType, quantity = 1, playerName } = (await request.json()) as RequestBody;
 
-    if (!prompt) {
-      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+    if (!foodType) {
+      return NextResponse.json(
+        { error: 'foodType is required' }, 
+        { status: 400 }
+      );
     }
 
-    // Simulate a delay and a witty response
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const wittyDialogue = `(Mocked) Azure OpenAI says: "${prompt}" sounds... adventurous. My circuits are buzzing with concern for your digestive tract. Proceed with caution, human.`;
+    // Validate food type
+    const validFoodTypes = [
+      'energy-drink', 
+      'mcnuggets', 
+      'protein-bar', 
+      'kombucha', 
+      'burrito', 
+      'kale-salmon-bowl'
+    ] as const;
 
-    return NextResponse.json({ dialogue: wittyDialogue });
+    if (!validFoodTypes.includes(foodType as any)) {
+      return NextResponse.json(
+        { error: 'Invalid food type' }, 
+        { status: 400 }
+      );
+    }
+
+    // Log the interaction
+    await logInteraction(foodType, quantity, playerName);
+
+    // Get reactions from LLM
+    const llmResponse = await getFoodReactions(foodType, quantity);
+
+    return NextResponse.json({
+      success: true,
+      foodType,
+      quantity,
+      ...llmResponse
+    });
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    console.error('API error:', errorMessage);
-    return NextResponse.json({ error: 'Failed to generate dialogue', details: errorMessage }, { status: 500 });
+    console.error('API error:', error);
+    
+    // Return a fallback response if the LLM fails
+    return NextResponse.json({
+      error: 'Failed to generate dialogue',
+      details: errorMessage,
+      fallback: {
+        reactions: [
+          {
+            character: 'System Error 🤖',
+            dialogue: 'Our organs are currently experiencing technical difficulties. Please try again later!',
+            timestamp: 0,
+            mood: 'confused',
+            emoji: '🤖'
+          }
+        ],
+        medical_context: 'Even our AI needs a break sometimes!',
+        humor_level: 3
+      }
+    }, { 
+      status: 500 
+    });
   }
 }
