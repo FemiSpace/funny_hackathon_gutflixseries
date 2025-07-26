@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getFoodReactions, logInteraction } from '@/lib/llmService';
+import { getFoodReactions, logInteraction, type FoodType } from '@/lib/llmService';
 
 type RequestBody = {
   foodType: string;
   quantity: number;
   playerName?: string;
 };
+
+const validFoodTypes = [
+  'energy-drink', 
+  'mcnuggets', 
+  'protein-bar', 
+  'kombucha', 
+  'burrito', 
+  'kale-salmon-bowl'
+] as const;
+
+type ValidFoodType = typeof validFoodTypes[number];
 
 export async function POST(request: Request) {
   try {
@@ -18,32 +29,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate food type
-    const validFoodTypes = [
-      'energy-drink', 
-      'mcnuggets', 
-      'protein-bar', 
-      'kombucha', 
-      'burrito', 
-      'kale-salmon-bowl'
-    ] as const;
-
-    if (!validFoodTypes.includes(foodType as any)) {
+    // Validate and type assert food type
+    if (!validFoodTypes.includes(foodType as ValidFoodType)) {
       return NextResponse.json(
         { error: 'Invalid food type' }, 
         { status: 400 }
       );
     }
 
+    // Type assertion is safe here because we've validated the foodType
+    const typedFoodType = foodType as FoodType;
+
     // Log the interaction
-    await logInteraction(foodType, quantity, playerName);
+    await logInteraction(typedFoodType, quantity, playerName);
 
     // Get reactions from LLM
-    const llmResponse = await getFoodReactions(foodType, quantity);
+    const llmResponse = await getFoodReactions(typedFoodType, quantity);
 
     return NextResponse.json({
       success: true,
-      foodType,
+      foodType: typedFoodType,
       quantity,
       ...llmResponse
     });

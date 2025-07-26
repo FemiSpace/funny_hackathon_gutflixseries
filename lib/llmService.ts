@@ -21,7 +21,7 @@ const client = new OpenAI({
 // Cache TTL in seconds (1 hour)
 const CACHE_TTL = 60 * 60;
 
-type FoodType = 'energy-drink' | 'mcnuggets' | 'protein-bar' | 'kombucha' | 'burrito' | 'kale-salmon-bowl';
+export type FoodType = 'energy-drink' | 'mcnuggets' | 'protein-bar' | 'kombucha' | 'burrito' | 'kale-salmon-bowl';
 
 interface OrganReaction {
   character: string;
