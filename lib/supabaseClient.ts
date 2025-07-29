@@ -1,15 +1,45 @@
 import { createClient } from '@supabase/supabase-js';
 
-// IMPORTANT: Replace with your Supabase project's URL and anon key
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'YOUR_SUPABASE_PROJECT_URL';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+// Get Supabase URL and anon key from environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || supabaseUrl === 'YOUR_SUPABASE_PROJECT_URL') {
-  console.error('Supabase URL is not set. Please add NEXT_PUBLIC_SUPABASE_URL to your .env.local file.');
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
+// Create a mock Supabase client for server-side rendering or when environment variables are missing
+const createMockSupabaseClient = () => {
+  return {
+    from: () => ({
+      select: () => ({
+        order: () => ({
+          limit: () => ({
+            data: [],
+            error: null,
+          }),
+        }),
+      }),
+    }),
+  } as any;
+};
+
+// Create the Supabase client with proper error handling
+let supabaseClient;
+
+try {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase environment variables are not set');
+  }
+  
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false, // Don't persist session in server components
+    },
+  });
+} catch (error) {
+  console.error('Failed to initialize Supabase client:', error);
+  console.warn('Using mock Supabase client. Some features may not work as expected.');
+  supabaseClient = createMockSupabaseClient();
 }
 
-if (!supabaseAnonKey || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY') {
-  console.error('Supabase anon key is not set. Please add NEXT_PUBLIC_SUPABASE_ANON_KEY to your .env.local file.');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = supabaseClient;
