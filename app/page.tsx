@@ -26,7 +26,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          foodType: food.id, // Changed from prompt to foodType
+          foodType: food.name.toLowerCase().replace(/\s+/g, '-'), // Convert food name to kebab-case (e.g., 'Energy Drink' -> 'energy-drink')
           quantity: 1,
           playerName: 'Player One' 
         }),
