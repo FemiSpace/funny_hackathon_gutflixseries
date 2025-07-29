@@ -89,32 +89,22 @@ export async function POST(request: Request) {
       }
     });
     
-    // Return a fallback response if the LLM fails
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to generate dialogue',
-      details: process.env.NODE_ENV === 'development' ? errorMessage : 'Service unavailable',
-      requestId: Math.random().toString(36).substring(2, 9), // Simple request ID for tracking
-      timestamp: new Date().toISOString(),
-      fallback: {
-        reactions: [
-          {
-            character: 'System Error 🤖',
-            dialogue: 'Our organs are currently experiencing technical difficulties. Please try again later!',
-            timestamp: Date.now(),
-            mood: 'confused',
-            emoji: '🤖'
-          }
-        ],
-        medical_context: 'Even our AI needs a break sometimes!',
-        humor_level: 3
+    // Return a proper error response without mock data
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to generate dialogue',
+        message: process.env.NODE_ENV === 'development' ? errorMessage : 'Service unavailable',
+        requestId: Math.random().toString(36).substring(2, 9), // Simple request ID for tracking
+        timestamp: new Date().toISOString()
+      },
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'X-Request-ID': Math.random().toString(36).substring(2, 9)
+        }
       }
-    }, { 
-      status: 500,
-      headers: {
-        'Cache-Control': 'no-store, max-age=0',
-        'X-Request-ID': Math.random().toString(36).substring(2, 9)
-      }
-    });
+    );
   }
 }

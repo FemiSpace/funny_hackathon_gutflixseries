@@ -123,49 +123,99 @@ export async function getFoodReactions(foodType: FoodType, quantity: number): Pr
   const cacheKey = `${foodType}_${quantity}`;
   
   try {
+    console.log(`[LLM] Checking cache for key: ${cacheKey}`);
     // Check cache first
-    const { data: cached } = await supabase
+    const { data: cached, error: cacheError } = await supabase
       .from('llm_cache')
       .select('*')
       .eq('key', cacheKey)
       .single();
 
-    if (cached && (Date.now() - new Date(cached.created_at).getTime()) / 1000 < CACHE_TTL) {
-      return cached.response as LLMResponse;
+    if (cacheError) {
+      console.warn('[LLM] Cache check error:', cacheError);
+    } else if (cached) {
+      const cacheAge = (Date.now() - new Date(cached.created_at).getTime()) / 1000;
+      console.log(`[LLM] Cache hit, age: ${cacheAge.toFixed(0)}s`);
+      if (cacheAge < CACHE_TTL) {
+        return cached.response as LLMResponse;
+      }
+      console.log('[LLM] Cache expired, generating new response');
+    } else {
+      console.log('[LLM] Cache miss');
     }
 
     // Generate new response
+    console.log(`[LLM] Generating new response for ${foodType} (quantity: ${quantity})`);
     const response = await generateLLMResponse(foodType, quantity);
     
     // Cache the response
-    await supabase
+    console.log('[LLM] Caching response');
+    const { error: upsertError } = await supabase
       .from('llm_cache')
       .upsert({
         key: cacheKey,
         response,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        food_type: foodType,
+        quantity
       });
+
+    if (upsertError) {
+      console.error('[LLM] Error caching response:', upsertError);
+    } else {
+      console.log('[LLM] Response cached successfully');
+    }
 
     return response;
   } catch (error) {
-    console.error('Error getting food reactions:', error);
-    throw error;
+    console.error('[LLM] Error in getFoodReactions:', {
+      error,
+      foodType,
+      quantity,
+      hasClient: !!client,
+      hasAzureKey: !!azureApiKey,
+      endpoint: azureEndpoint,
+      deployment: deploymentName
+    });
+    
+    // Return a more detailed error response
+    return {
+      reactions: [{
+        character: 'System Error ⚠️',
+        dialogue: `Failed to generate response: ${error instanceof Error ? error.message : 'Unknown error'}. Check console for details.`,
+        timestamp: Date.now(),
+        mood: 'confused',
+        emoji: '⚠️'
+      }],
+      medical_context: 'Our AI service is experiencing technical difficulties. Please try again later.',
+      humor_level: 1
+    };
   }
 }
 
-async function getFoodReaction(foodType: string): Promise<string> {
+async function getFoodReaction(foodType: string, quantity: number): Promise<string> {
   try {
     // Check cache first
-    const { data: cachedResponse, error: cacheError } = await supabase
-      .from('llm_cache')
-      .select('response')
-      .eq('prompt', foodType)
+    const { data: cached, error: cacheError } = await supabase
+      .from('llm_reactions')
+      .select('*')
+      .eq('food_type', foodType)
+      .eq('quantity', quantity)
       .gt('created_at', new Date(Date.now() - CACHE_TTL * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
-    if (cachedResponse && !cacheError) {
-      console.log('Cache hit for:', foodType);
-      return cachedResponse.response;
+    if (cached && !cacheError) {
+      console.log('Returning cached response for', { foodType, quantity });
+      return cached.response as string;
+    }
+    
+    // Log cache miss or error
+    if (cacheError) {
+      console.warn('Cache check error:', cacheError);
+    } else {
+      console.log('Cache miss for', { foodType, quantity });
     }
 
     console.log('Cache miss for:', foodType);
@@ -206,33 +256,22 @@ async function getFoodReaction(foodType: string): Promise<string> {
 
 // Generate response using Azure OpenAI
 async function generateLLMResponse(foodType: FoodType, quantity: number): Promise<LLMResponse> {
-  // Fallback response in case of errors
-  const fallbackResponse: LLMResponse = {
-    reactions: [
-      {
-        character: 'System 🤖',
-        dialogue: 'Our AI is currently experiencing technical difficulties. Please try again later!',
-        timestamp: 0,
-        mood: 'confused',
-        emoji: '🤖'
-      }
-    ],
-    medical_context: 'Even our AI needs a break sometimes!',
-    humor_level: 3
-  };
-
   // Check if client is initialized
   if (!client) {
-    console.error('OpenAI client not initialized. Check environment variables:', {
+    const errorMsg = 'OpenAI client not initialized. Check environment variables';
+    console.error(errorMsg, {
       hasApiKey: !!azureApiKey,
       hasEndpoint: !!azureEndpoint,
       deployment: deploymentName,
       apiVersion: apiVersion,
       env: process.env.NODE_ENV,
-      // Don't log the actual API key, just if it exists
       hasApiKeyLength: azureApiKey ? 'yes' : 'no'
     });
-    return fallbackResponse;
+    throw new Error(errorMsg);
+  }
+  
+  if (!client) {
+    throw new Error('OpenAI client is not properly initialized');
   }
 
   const systemPrompt = FOOD_PROMPTS[foodType] || FOOD_PROMPTS['energy-drink'];
@@ -263,7 +302,11 @@ async function generateLLMResponse(foodType: FoodType, quantity: number): Promis
   }`;
 
   try {
-    console.log('Sending request to Azure OpenAI...');
+    console.log('Sending request to Azure OpenAI...', {
+      model: deploymentName,
+      systemPrompt: systemPrompt.substring(0, 100) + '...',
+      userPrompt: userPrompt.substring(0, 100) + '...'
+    });
     
     const response = await client.chat.completions.create({
       model: deploymentName,
@@ -276,12 +319,18 @@ async function generateLLMResponse(foodType: FoodType, quantity: number): Promis
       max_tokens: 1000
     });
 
-    console.log('Received response from Azure OpenAI');
+    console.log('Received response from Azure OpenAI:', {
+      id: response.id,
+      model: response.model,
+      usage: response.usage,
+      finish_reason: response.choices[0]?.finish_reason
+    });
     
     const content = response.choices[0]?.message?.content;
     if (!content) {
-      console.error('No content in response from Azure OpenAI');
-      return fallbackResponse;
+      const error = new Error('No content in response from Azure OpenAI');
+      console.error(error);
+      throw error;
     }
 
     try {
@@ -289,14 +338,15 @@ async function generateLLMResponse(foodType: FoodType, quantity: number): Promis
       
       // Validate the response structure
       if (!parsedResponse.reactions || !Array.isArray(parsedResponse.reactions)) {
-        console.error('Invalid response format from Azure OpenAI');
-        return fallbackResponse;
+        const error = new Error('Invalid response format from Azure OpenAI');
+        console.error(error, { content });
+        throw new Error('Invalid response format from AI service. Check logs for details.');
       }
       
       return parsedResponse;
     } catch (parseError) {
-      console.error('Error parsing Azure OpenAI response:', parseError);
-      return fallbackResponse;
+      console.error('Error parsing Azure OpenAI response:', parseError, { content });
+      throw new Error(`Error parsing AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
   } catch (error) {
     console.error('Error generating LLM response:', {
