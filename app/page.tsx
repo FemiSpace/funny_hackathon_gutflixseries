@@ -21,29 +21,53 @@ export default function Home() {
     setLlmResponse('');
 
     try {
+      // First, call the generate-dialogue endpoint
       const response = await fetch('/api/generate-dialogue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: food.llmPrompt }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get dialogue');
-      }
-
-      const data = await response.json();
-      setLlmResponse(data.dialogue);
-
-      await fetch('/api/log-meal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playerName: 'Player One',
-          foodName: food.name,
-          damageScore: food.damageScore,
+        body: JSON.stringify({ 
+          foodType: food.id, // Changed from prompt to foodType
+          quantity: 1,
+          playerName: 'Player One' 
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get dialogue');
+      }
+
+      const llmData = await response.json();
+      
+      // Format the LLM response for display
+      if (llmData.reactions && Array.isArray(llmData.reactions)) {
+        const formattedResponse = llmData.reactions
+          .map((r: any) => `${r.character}: ${r.dialogue}`)
+          .join('\n\n');
+        setLlmResponse(formattedResponse);
+      } else {
+        setLlmResponse('Received an unexpected response format from the server.');
+      }
+
+      // Log the meal interaction
+      try {
+        await fetch('/api/log-meal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerName: 'Player One',
+            foodType: food.id,
+            foodName: food.name,
+            damageScore: food.damageScore,
+            timestamp: new Date().toISOString()
+          }),
+        });
+      } catch (logError) {
+        console.error('Error logging meal:', logError);
+        // Don't fail the entire operation if logging fails
+      }
+
+      // Refresh the leaderboard
       setRefreshTrigger(prev => prev + 1);
 
     } catch (error) {
@@ -89,7 +113,7 @@ export default function Home() {
           <div className="lg:col-span-2 flex flex-col gap-8">
             <Card className="flex flex-col gap-4 items-center justify-center">
               <ReactionScene food={selectedFood} />
-              <LLMResponseBox response={llmResponse} isLoading={isLoading} />
+              <LLMResponseBox food={selectedFood} isLoading={isLoading} />
             </Card>
             <Card>
               <Leaderboard refreshTrigger={refreshTrigger} />

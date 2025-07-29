@@ -19,8 +19,8 @@ export const foodData: FoodItem[] = [
     damageScore: -8,
     outsidePerception: "Boosted!",
     insideReactionGif: "electrical-panel-explosion.jpeg",
-    reactionLabel: "Brain: 'Racing.' Liver: 'Mayday!'",
-    llmPrompt: "Write a sarcastic monologue from the liver after the person drank an energy drink. Include caffeine panic, vitamin overdose, and sugar-induced drama.",
+    reactionLabel: "Liver: 'Red alert! Caffeine tsunami incoming! Abandon all detox protocols!'",
+    llmPrompt: "Brain: 'I can see sounds and hear colors!' Liver: 'I'm drowning in a sea of artificial sweeteners and B-vitamins! This isn't energy, it's liquid panic!' Kidneys: 'We're filtering what now?!'"
   },
   {
     id: 2,
@@ -29,8 +29,8 @@ export const foodData: FoodItem[] = [
     damageScore: -12,
     outsidePerception: "Factory machine fail",
     insideReactionGif: "factory-machine-fails.gif",
-    reactionLabel: "Gut flora: 'Oil bath incoming!'",
-    llmPrompt: "Create a dialogue between gut bacteria and the pancreas after receiving a delivery of McNuggets. Make it chaotic, greasy, and full of regret.",
+    reactionLabel: "Gut Microbiome: 'ALIEN INVASION!'",
+    llmPrompt: "Good Gut Bacteria: 'What... what is this substance? It's like chicken, but also... plastic?' Bad Bacteria: 'MUAHAHA! Our time has come! Commence the grease party!' Pancreas: 'I don't even know what to do with this... is it food or a chemistry experiment?'"
   },
   {
     id: 3,
@@ -39,8 +39,8 @@ export const foodData: FoodItem[] = [
     damageScore: -15,
     outsidePerception: "Emergency evacuate!",
     insideReactionGif: "fire-hose-out-of-control.gif",
-    reactionLabel: "Colon: 'Emergency evacuate!'",
-    llmPrompt: "Write an emergency gut broadcast as the burrito arrives. The intestines are staging a protest. Include riot metaphors.",
+    reactionLabel: "Colon: 'CODE BROWN! REPEAT, CODE BROWN!'",
+    llmPrompt: "Stomach: 'Oh no... not again...' Small Intestine: 'What is this? Is it food? Is it a weapon?' Colon: 'EVERYBODY OUT! ABANDON SHIP! I DON'T CARE IF IT'S ONLY BEEN 20 MINUTES! EMERGENCY EVACUATION PROTOCOLS ACTIVATED!"
   },
   {
     id: 4,
@@ -49,8 +49,8 @@ export const foodData: FoodItem[] = [
     damageScore: 5,
     outsidePerception: "I'm healthy now",
     insideReactionGif: "happy-party.gif",
-    reactionLabel: "Microbiome: 'A pleasant surprise!'",
-    llmPrompt: "Write a zen meditation from the gut microbiome after receiving kombucha. Gratitude, serenity, and healthy vibes only.",
+    reactionLabel: "Gut: 'Is this... is this love?'",
+    llmPrompt: "Good Bacteria: 'Oh wow, is that... ginger? And a hint of turmeric? *sniff* It's beautiful...' Bad Bacteria: 'Ugh, not this healthy crap again.' Liver: 'Wait, something actually good for me? Did I die and go to organ heaven?'"
   },
   {
     id: 5,
@@ -59,8 +59,8 @@ export const foodData: FoodItem[] = [
     damageScore: -4,
     outsidePerception: "Rocket launch fail",
     insideReactionGif: "rocket-launch-fail.gif",
-    reactionLabel: "Liver: 'It's sugar in disguise!'",
-    llmPrompt: "Write a sarcastic liver monologue after receiving a 'healthy' protein bar loaded with fake sweeteners and processed goo. The liver is skeptical.",
+    reactionLabel: "Liver: '3... 2... 1... MISSION FAILURE! I repeat, the rocket has failed to reach orbit!'",
+    llmPrompt: "Liver: 'Initiating enzyme sequence... wait, what is this? Artificial sweeteners? Sugar alcohols? *sigh* Abort mission! I repeat, abort mission! This isn't fuel, it's a chemical weapon! Stomach: 'Too late! We have liftoff of the gas factory!'",
   },
   {
     id: 6,
@@ -69,7 +69,7 @@ export const foodData: FoodItem[] = [
     damageScore: 10,
     outsidePerception: "Happy party",
     insideReactionGif: "happy-party.gif",
-    reactionLabel: "Gut: 'Happy party 🙏'",
-    llmPrompt: "Write a celebration party between liver, gut, and brain after getting a kale and salmon bowl. Full of smug clean-eating energy.",
+    reactionLabel: "Brain & Gut Choir: 'OMEGA-3s! ANTIOXIDANTS! VITAMIN D!'",
+    llmPrompt: "Brain: 'I can feel my neurons high-fiving each other!' Gut: 'Finally, some real food! And look at all these happy little microbes dancing!' Liver: 'I don't know what to do with all these nutrients... I'm not used to this!' Heart: 'Keep it coming, this is amazing!',"
   },
 ]

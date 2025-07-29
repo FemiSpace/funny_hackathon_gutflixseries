@@ -2,22 +2,38 @@ import OpenAI from 'openai';
 import { supabase } from './supabaseClient';
 import { foodData } from './foodData';
 
-// Initialize OpenAI client with Azure configuration
-const azureApiKey = process.env.AZURE_OPENAI_API_KEY || '';
-const azureEndpoint = 'https://ai-info4892ai019484081803.services.ai.azure.com';
-const deploymentName = 'gpt-4o';
-const apiVersion = '2024-11-20';
+// Get Azure OpenAI configuration from environment variables
+const azureApiKey = process.env.AZURE_OPENAI_API_KEY || process.env.NEXT_PUBLIC_AZURE_OPENAI_API_KEY || '';
+const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://ai-info4892ai019484081803.services.ai.azure.com';
+const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-11-20';
 
-if (!azureApiKey) {
-  console.error('Azure OpenAI API key not configured');
-}
-
-const client = new OpenAI({
-  apiKey: azureApiKey,
-  baseURL: `${azureEndpoint}/openai/deployments/${deploymentName}`,
-  defaultQuery: { 'api-version': apiVersion },
-  defaultHeaders: { 'api-key': azureApiKey },
+// Log configuration (without exposing sensitive data)
+console.log('Azure OpenAI Configuration:', {
+  endpoint: azureEndpoint,
+  deployment: deploymentName,
+  apiVersion: apiVersion,
+  hasApiKey: !!azureApiKey
 });
+
+// Initialize OpenAI client with Azure configuration
+let client: OpenAI | null = null;
+
+try {
+  if (!azureApiKey) {
+    console.warn('Azure OpenAI API key not configured. LLM features will be disabled.');
+  } else {
+    client = new OpenAI({
+      apiKey: azureApiKey,
+      baseURL: `${azureEndpoint}/openai/deployments/${deploymentName}`,
+      defaultQuery: { 'api-version': apiVersion },
+      defaultHeaders: { 'api-key': azureApiKey },
+    });
+  }
+} catch (error) {
+  console.error('Failed to initialize OpenAI client:', error);
+  client = null;
+}
 
 // Cache TTL in seconds (1 hour)
 const CACHE_TTL = 60 * 60;
@@ -190,6 +206,35 @@ async function getFoodReaction(foodType: string): Promise<string> {
 
 // Generate response using Azure OpenAI
 async function generateLLMResponse(foodType: FoodType, quantity: number): Promise<LLMResponse> {
+  // Fallback response in case of errors
+  const fallbackResponse: LLMResponse = {
+    reactions: [
+      {
+        character: 'System 🤖',
+        dialogue: 'Our AI is currently experiencing technical difficulties. Please try again later!',
+        timestamp: 0,
+        mood: 'confused',
+        emoji: '🤖'
+      }
+    ],
+    medical_context: 'Even our AI needs a break sometimes!',
+    humor_level: 3
+  };
+
+  // Check if client is initialized
+  if (!client) {
+    console.error('OpenAI client not initialized. Check environment variables:', {
+      hasApiKey: !!azureApiKey,
+      hasEndpoint: !!azureEndpoint,
+      deployment: deploymentName,
+      apiVersion: apiVersion,
+      env: process.env.NODE_ENV,
+      // Don't log the actual API key, just if it exists
+      hasApiKeyLength: azureApiKey ? 'yes' : 'no'
+    });
+    return fallbackResponse;
+  }
+
   const systemPrompt = FOOD_PROMPTS[foodType] || FOOD_PROMPTS['energy-drink'];
   
   const userPrompt = `A person just consumed ${quantity} ${foodType}${quantity > 1 ? 's' : ''}. 
@@ -218,6 +263,8 @@ async function generateLLMResponse(foodType: FoodType, quantity: number): Promis
   }`;
 
   try {
+    console.log('Sending request to Azure OpenAI...');
+    
     const response = await client.chat.completions.create({
       model: deploymentName,
       messages: [
@@ -229,13 +276,39 @@ async function generateLLMResponse(foodType: FoodType, quantity: number): Promis
       max_tokens: 1000
     });
 
+    console.log('Received response from Azure OpenAI');
+    
     const content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('No content in response');
+    if (!content) {
+      console.error('No content in response from Azure OpenAI');
+      return fallbackResponse;
+    }
 
-    return JSON.parse(content) as LLMResponse;
+    try {
+      const parsedResponse = JSON.parse(content) as LLMResponse;
+      
+      // Validate the response structure
+      if (!parsedResponse.reactions || !Array.isArray(parsedResponse.reactions)) {
+        console.error('Invalid response format from Azure OpenAI');
+        return fallbackResponse;
+      }
+      
+      return parsedResponse;
+    } catch (parseError) {
+      console.error('Error parsing Azure OpenAI response:', parseError);
+      return fallbackResponse;
+    }
   } catch (error) {
-    console.error('Error generating LLM response:', error);
-    throw error;
+    console.error('Error generating LLM response:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      endpoint: azureEndpoint,
+      deployment: deploymentName,
+      apiVersion: apiVersion,
+      hasApiKey: !!azureApiKey,
+      // Add more debug info as needed
+    });
+    return fallbackResponse;
   }
 }
 
